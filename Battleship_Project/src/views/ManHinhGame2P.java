@@ -40,11 +40,15 @@ public class ManHinhGame2P extends JFrame {
     };
 
     private Image imgHit, imgMiss, imgTau5, imgTau4, imgTau3, imgTau2;
+    private Image bgBattle = null; // Ảnh nền chính
 
     // UI Components
     private JLabel lblTrangThaiMain;
     private JButton btnVaoTran, btnAnHienP1, btnAnHienP2;
     private JPanel pnlSetupP1, pnlSetupP2;
+
+    // Màu radar dạ quang khi rê chuột qua ô cờ
+    private static final Color MAU_RADAR_HOVER = new Color(52, 152, 219, 100);
 
     public ManHinhGame2P() {
         this.setTitle("Battleship Pro - Đấu 2 Người (Bản Tối Ưu Mượt Mà)");
@@ -57,32 +61,51 @@ public class ManHinhGame2P extends JFrame {
         p1Data = new BanCo();
         p2Data = new BanCo();
 
-        JPanel pnlMain = new JPanel(new GridLayout(1, 2, 50, 0));
-        pnlMain.setBorder(new EmptyBorder(20, 20, 20, 20));
-        pnlMain.setBackground(new Color(44, 62, 80));
+        // --- GẮN BACKGROUND CHO KHU VỰC CHÍNH ---
+        JPanel pnlMain = new JPanel(new GridLayout(1, 2, 50, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (bgBattle != null) {
+                    g2d.drawImage(bgBattle, 0, 0, getWidth(), getHeight(), this);
+                    // Phủ một lớp đen mờ mỏng để làm dịu mắt, nổi bật bàn cờ
+                    g2d.setColor(new Color(10, 15, 25, 40)); 
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                } else {
+                    g2d.setColor(new Color(34, 49, 63));
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
+        };
+        pnlMain.setBorder(new EmptyBorder(30, 40, 20, 40));
 
         pnlMain.add(taoKhuVucP1());
         pnlMain.add(taoKhuVucP2());
         this.add(pnlMain, BorderLayout.CENTER);
 
-        // --- THANH ĐIỀU KHIỂN CHÍNH ---
-        JPanel pnlControlMain = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        pnlControlMain.setBackground(new Color(52, 73, 94));
+        // --- THANH ĐIỀU KHIỂN CHÍNH (BOTTOM) TRONG SUỐT ---
+        JPanel pnlControlMain = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 12)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setPaint(new GradientPaint(0, 0, new Color(15, 25, 35, 200), 0, getHeight(), new Color(5, 10, 15, 240)));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
         
         lblTrangThaiMain = new JLabel("XẾP TÀU VÀ ẤN 'ẨN TÀU' TRƯỚC KHI BẮT ĐẦU");
-        lblTrangThaiMain.setFont(new Font("Arial", Font.BOLD, 18));
+        lblTrangThaiMain.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTrangThaiMain.setForeground(Color.YELLOW);
 
-        btnVaoTran = new JButton("VÀO TRẬN !!!");
-        btnVaoTran.setBackground(new Color(46, 204, 113));
-        btnVaoTran.setForeground(Color.WHITE);
-        btnVaoTran.setFont(new Font("Arial", Font.BOLD, 16));
+        btnVaoTran = taoNutGiaoDien("VÀO TRẬN !!!", new Color(46, 204, 113));
+        btnVaoTran.setFont(new Font("Segoe UI", Font.BOLD, 15));
         btnVaoTran.setEnabled(false);
         btnVaoTran.addActionListener(e -> batDauTranChien());
 
-        JButton btnReset = new JButton("Reset Game");
-        btnReset.setBackground(new Color(243, 156, 18));
-        btnReset.setForeground(Color.WHITE);
+        JButton btnReset = taoNutGiaoDien("Reset Game", new Color(243, 156, 18));
         btnReset.addActionListener(e -> {
             int chon = JOptionPane.showConfirmDialog(this, "Chơi lại từ đầu?", "Reset Game", JOptionPane.YES_NO_OPTION);
             if(chon == JOptionPane.YES_OPTION) {
@@ -91,9 +114,7 @@ public class ManHinhGame2P extends JFrame {
             }
         });
 
-        JButton btnThoat = new JButton("Về Menu");
-        btnThoat.setBackground(new Color(231, 76, 60));
-        btnThoat.setForeground(Color.WHITE);
+        JButton btnThoat = taoNutGiaoDien("Về Menu", new Color(231, 76, 60));
         btnThoat.addActionListener(e -> {
             int chon = JOptionPane.showConfirmDialog(this, "Thoát ra Menu chính?", "Thoát?", JOptionPane.YES_NO_OPTION);
             if(chon == JOptionPane.YES_OPTION) {
@@ -103,6 +124,7 @@ public class ManHinhGame2P extends JFrame {
         });
 
         pnlControlMain.add(lblTrangThaiMain);
+        pnlControlMain.add(Box.createHorizontalStrut(10));
         pnlControlMain.add(btnVaoTran);
         pnlControlMain.add(btnReset);
         pnlControlMain.add(btnThoat);
@@ -117,9 +139,56 @@ public class ManHinhGame2P extends JFrame {
             imgTau4 = new ImageIcon(getClass().getResource("/images/tau_4.png")).getImage();
             imgTau3 = new ImageIcon(getClass().getResource("/images/tau_3.png")).getImage();
             imgTau2 = new ImageIcon(getClass().getResource("/images/tau_2.png")).getImage();
+            
+            // Load ảnh game.png
+            URL bgUrl = getClass().getResource("/images/game.png");
+            if (bgUrl != null) {
+                bgBattle = new ImageIcon(bgUrl).getImage();
+            }
         } catch (Exception e) {
             System.err.println("Lỗi load ảnh.");
         }
+    }
+
+    // Nút bấm phong cách mới, hiện đại hơn
+    private JButton taoNutGiaoDien(String text, Color mauChuDao) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth(), h = getHeight();
+
+                if (!isEnabled()) {
+                    g2d.setColor(new Color(80, 80, 80, 60));
+                    g2d.fillRoundRect(0, 0, w, h, 6, 6);
+                } else if (getModel().isPressed()) {
+                    g2d.setColor(new Color(10, 15, 20, 180));
+                    g2d.fillRoundRect(0, 0, w, h, 6, 6);
+                } else if (getModel().isRollover()) {
+                    g2d.setPaint(new GradientPaint(0, 0, new Color(mauChuDao.getRed(), mauChuDao.getGreen(), mauChuDao.getBlue(), 90), 0, h, new Color(20, 30, 40, 120)));
+                    g2d.fillRoundRect(0, 0, w, h, 6, 6);
+                    g2d.setStroke(new BasicStroke(1.8f));
+                    g2d.setColor(mauChuDao);
+                    g2d.drawRoundRect(1, 1, w - 3, h - 3, 6, 6);
+                } else {
+                    g2d.setPaint(new GradientPaint(0, 0, new Color(30, 45, 60, 120), 0, h, new Color(15, 20, 30, 160)));
+                    g2d.fillRoundRect(0, 0, w, h, 6, 6);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.setColor(new Color(mauChuDao.getRed(), mauChuDao.getGreen(), mauChuDao.getBlue(), 120));
+                    g2d.drawRoundRect(1, 1, w - 3, h - 3, 6, 6);
+                }
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setForeground(Color.WHITE);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     class OBanCo extends JButton {
@@ -139,7 +208,7 @@ public class ManHinhGame2P extends JFrame {
             this.isHitAnimation = true;
             this.repaint();
             
-            Timer timer = new Timer(600, e -> { // Giảm thời gian nổ cho mượt và nhanh hơn
+            Timer timer = new Timer(600, e -> {
                 this.isHitAnimation = false;
                 this.isPermanentlyOnFire = true; 
                 this.setEnabled(false); 
@@ -165,9 +234,14 @@ public class ManHinhGame2P extends JFrame {
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g); 
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Hover chuột sáng lưới radar
+            if (getModel().isRollover() && isEnabled()) {
+                g2.setColor(MAU_RADAR_HOVER);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
 
             if (isShowShip) {
                 if (shipImg != null) {
@@ -202,23 +276,36 @@ public class ManHinhGame2P extends JFrame {
     }
 
     private JPanel taoKhuVucP1() {
-        JPanel pnlTrai = new JPanel(new BorderLayout(0, 10));
+        // Hộp kính mờ Glassmorphism
+        JPanel pnlTrai = new JPanel(new BorderLayout(0, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(12, 18, 28, 150)); 
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
         pnlTrai.setOpaque(false);
+        pnlTrai.setBorder(new EmptyBorder(15, 15, 15, 15));
         
         JLabel lblTieuDe = new JLabel("LÃNH ĐỊA PLAYER 1", SwingConstants.CENTER);
-        lblTieuDe.setFont(new Font("Arial", Font.BOLD, 16));
+        lblTieuDe.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTieuDe.setForeground(new Color(52, 152, 219)); 
         pnlTrai.add(lblTieuDe, BorderLayout.NORTH);
 
-        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10));
+        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10, 1, 1));
         pnlLuoi.setPreferredSize(new Dimension(400, 400));
+        pnlLuoi.setOpaque(false);
 
         for (int i = 0; i < 100; i++) {
             int r = i / 10, c = i % 10;
             OBanCo btn = new OBanCo();
-            btn.setBackground(new Color(41, 128, 185));
-            btn.setBorder(BorderFactory.createLineBorder(new Color(30, 90, 130), 1));
+            btn.setContentAreaFilled(false);
             btn.setFocusPainted(false);
+            btn.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 1)); // Viền trắng mờ
             btn.addActionListener(e -> {
                 if (isSetup) xuLyDatTau(r, c, 1);
                 else if (!isP1Turn && !isAnimating) playerAttack(r, c, 2); 
@@ -228,22 +315,20 @@ public class ManHinhGame2P extends JFrame {
         }
         pnlTrai.add(pnlLuoi, BorderLayout.CENTER);
 
-        pnlSetupP1 = new JPanel(new FlowLayout());
+        pnlSetupP1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 5));
         pnlSetupP1.setOpaque(false);
         
-        JButton btnXoayP1 = new JButton("Xoay: NGANG");
+        JButton btnXoayP1 = taoNutGiaoDien("Xoay: NGANG", new Color(52, 152, 219));
         btnXoayP1.addActionListener(e -> { isNgangP1 = !isNgangP1; btnXoayP1.setText(isNgangP1 ? "Xoay: NGANG" : "Xoay: DỌC"); });
         
-        JButton btnRandomP1 = new JButton("Xếp Nhanh");
+        JButton btnRandomP1 = taoNutGiaoDien("Xếp Nhanh", new Color(26, 188, 156));
         btnRandomP1.addActionListener(e -> {
             autoXepTau(1);
             anTauP1 = false; 
             btnAnHienP1.setText("Ẩn Tàu");
         });
 
-        btnAnHienP1 = new JButton("Ẩn Tàu");
-        btnAnHienP1.setBackground(new Color(155, 89, 182));
-        btnAnHienP1.setForeground(Color.WHITE);
+        btnAnHienP1 = taoNutGiaoDien("Ẩn Tàu", new Color(155, 89, 182));
         btnAnHienP1.addActionListener(e -> {
             anTauP1 = !anTauP1;
             btnAnHienP1.setText(anTauP1 ? "Hiện Tàu" : "Ẩn Tàu");
@@ -259,23 +344,36 @@ public class ManHinhGame2P extends JFrame {
     }
 
     private JPanel taoKhuVucP2() {
-        JPanel pnlPhai = new JPanel(new BorderLayout(0, 10));
+        // Hộp kính mờ Glassmorphism
+        JPanel pnlPhai = new JPanel(new BorderLayout(0, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(12, 18, 28, 150)); 
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
         pnlPhai.setOpaque(false);
+        pnlPhai.setBorder(new EmptyBorder(15, 15, 15, 15));
         
         JLabel lblTieuDe = new JLabel("LÃNH ĐỊA PLAYER 2", SwingConstants.CENTER);
-        lblTieuDe.setFont(new Font("Arial", Font.BOLD, 16));
+        lblTieuDe.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTieuDe.setForeground(new Color(231, 76, 60)); 
         pnlPhai.add(lblTieuDe, BorderLayout.NORTH);
 
-        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10));
+        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10, 1, 1));
         pnlLuoi.setPreferredSize(new Dimension(400, 400));
+        pnlLuoi.setOpaque(false);
 
         for (int i = 0; i < 100; i++) {
             int r = i / 10, c = i % 10;
             OBanCo btn = new OBanCo();
-            btn.setBackground(new Color(192, 57, 43));
-            btn.setBorder(BorderFactory.createLineBorder(new Color(130, 30, 30), 1));
+            btn.setContentAreaFilled(false);
             btn.setFocusPainted(false);
+            btn.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 1)); // Viền trắng mờ
             btn.addActionListener(e -> {
                 if (isSetup) xuLyDatTau(r, c, 2);
                 else if (isP1Turn && !isAnimating) playerAttack(r, c, 1); 
@@ -285,22 +383,20 @@ public class ManHinhGame2P extends JFrame {
         }
         pnlPhai.add(pnlLuoi, BorderLayout.CENTER);
 
-        pnlSetupP2 = new JPanel(new FlowLayout());
+        pnlSetupP2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 5));
         pnlSetupP2.setOpaque(false);
         
-        JButton btnXoayP2 = new JButton("Xoay: NGANG");
+        JButton btnXoayP2 = taoNutGiaoDien("Xoay: NGANG", new Color(52, 152, 219));
         btnXoayP2.addActionListener(e -> { isNgangP2 = !isNgangP2; btnXoayP2.setText(isNgangP2 ? "Xoay: NGANG" : "Xoay: DỌC"); });
         
-        JButton btnRandomP2 = new JButton("Xếp Nhanh");
+        JButton btnRandomP2 = taoNutGiaoDien("Xếp Nhanh", new Color(26, 188, 156));
         btnRandomP2.addActionListener(e -> {
             autoXepTau(2);
             anTauP2 = false; 
             btnAnHienP2.setText("Ẩn Tàu");
         });
 
-        btnAnHienP2 = new JButton("Ẩn Tàu");
-        btnAnHienP2.setBackground(new Color(155, 89, 182));
-        btnAnHienP2.setForeground(Color.WHITE);
+        btnAnHienP2 = taoNutGiaoDien("Ẩn Tàu", new Color(155, 89, 182));
         btnAnHienP2.addActionListener(e -> {
             anTauP2 = !anTauP2;
             btnAnHienP2.setText(anTauP2 ? "Hiện Tàu" : "Ẩn Tàu");
@@ -347,7 +443,6 @@ public class ManHinhGame2P extends JFrame {
         if (data.datTau(tau, r, c, isNgang)) {
             Image img = (tau.getChieuDai() == 5) ? imgTau5 : (tau.getChieuDai() == 4) ? imgTau4 : (tau.getChieuDai() == 3) ? imgTau3 : imgTau2;
             
-            // Vẽ trực tiếp lên các ô được đặt, KHÔNG repain toàn bộ bàn cờ
             for (int i = 0; i < tau.getChieuDai(); i++) {
                 int tr = r + (isNgang ? 0 : i);
                 int tc = c + (isNgang ? i : 0);
@@ -363,7 +458,6 @@ public class ManHinhGame2P extends JFrame {
     }
 
     private void anHienTauNhanh(int player, boolean anTau) {
-        // Chỉ quét mảng của người chơi đó và ẩn/hiện, rất nhẹ nhàng
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 10; c++) {
                 OBanCo btn = (player == 1) ? (OBanCo)btnTrai[r][c] : (OBanCo)btnPhai[r][c];
@@ -388,7 +482,6 @@ public class ManHinhGame2P extends JFrame {
         pnlSetupP2.setVisible(false);
         btnVaoTran.setVisible(false);
         
-        // Đảm bảo ẩn sạch tàu cả 2 bên khi vào trận (tránh ăn gian)
         anHienTauNhanh(1, true);
         anHienTauNhanh(2, true);
         
@@ -402,7 +495,6 @@ public class ManHinhGame2P extends JFrame {
 
         boolean trung = banCoDich.biBan(r, c);
         
-        // TỐI ƯU HÓA: CHỈ CẬP NHẬT ĐÚNG 1 Ô VỪA BỊ BẮN !
         OBanCo targetBtn = (attacker == 1) ? (OBanCo)btnPhai[r][c] : (OBanCo)btnTrai[r][c];
 
         if (trung) {
@@ -411,7 +503,7 @@ public class ManHinhGame2P extends JFrame {
             lblTrangThaiMain.setText("BÙM! ĐANG BỐC CHÁY...");
             lblTrangThaiMain.setForeground(Color.ORANGE);
             
-            targetBtn.isShowShip = true; // Bắn trúng thì hiện xác tàu ra
+            targetBtn.isShowShip = true;
             targetBtn.hieuUngNoVaChay();
             
             Timer t = new Timer(600, e -> {
@@ -437,7 +529,7 @@ public class ManHinhGame2P extends JFrame {
         } else {
             phatAmThanh("nuoc.wav");
             targetBtn.isMiss = true;
-            targetBtn.repaint(); // Cập nhật đúng 1 ô trượt
+            targetBtn.repaint(); 
             
             isP1Turn = !isP1Turn;
             capNhatTrangThaiChinh();
