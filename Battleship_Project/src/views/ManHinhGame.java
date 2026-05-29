@@ -19,7 +19,7 @@ public class ManHinhGame extends JFrame {
     private boolean isDangXepTau = true; 
     private boolean isPlayerTurn = true; 
     private boolean isNgang = true;      
-    private boolean isAnimating = false; // Khóa chuột chống spam click khi đang cháy nổ
+    private boolean isAnimating = false; 
     private int tauHienTai = 0;          
     private int doKhoBot = 0;
 
@@ -33,12 +33,14 @@ public class ManHinhGame extends JFrame {
 
     private Image imgHit, imgMiss;
     private Image imgTau5, imgTau4, imgTau3, imgTau2;
+    private Image bgBattle = null; 
 
     private JLabel lblTrangThai;
     private JButton btnXoayTau, btnVaoTran, btnXepNgauNhien, btnXoaHet, btnThoat;
     private JComboBox<String> cbDoKho;
 
-    private static final Color MAU_NUOC_BIEN = new Color(52, 152, 219);
+    // Tăng độ đậm màu khi di chuột để nhìn cực rõ ô đang chọn
+    private static final Color MAU_RADAR_HOVER = new Color(52, 152, 219, 100); 
 
     public ManHinhGame() {
         this.setTitle("Battleship Pro - Hạm Đội Thức Giấc");
@@ -49,29 +51,63 @@ public class ManHinhGame extends JFrame {
 
         khoiTaoImages();
 
-        JPanel pnlMain = new JPanel(new GridLayout(1, 2, 50, 0));
-        pnlMain.setBorder(new EmptyBorder(20, 20, 20, 20));
-        pnlMain.setBackground(new Color(44, 62, 80));
+        // --- PANEL CHÍNH: GIỮ NỀN SÁNG ĐẸP TỰ NHIÊN ---
+        JPanel pnlMain = new JPanel(new GridLayout(1, 2, 50, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (bgBattle != null) {
+                    g2d.drawImage(bgBattle, 0, 0, getWidth(), getHeight(), this);
+                    // Lớp phủ siêu mỏng (Alpha = 40) để giữ nguyên độ rực rỡ của ảnh gốc
+                    g2d.setColor(new Color(10, 15, 25, 40)); 
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                } else {
+                    g2d.setColor(new Color(34, 49, 63));
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
+        };
+        pnlMain.setBorder(new EmptyBorder(30, 50, 20, 50));
 
         pnlMain.add(taoMotBanCo("BẢN ĐỒ CỦA TÔI", false, btnMinh));
         pnlMain.add(taoMotBanCo("RA ĐA ĐỊCH (Tàng Hình)", true, btnDich));
         
         this.add(pnlMain, BorderLayout.CENTER);
 
-        JPanel pnlControl = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 15));
-        pnlControl.setBackground(new Color(52, 73, 94));
+        // --- THANH ĐIỀU KHIỂN (BOTTOM BAR) ---
+        JPanel pnlControl = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 12)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setPaint(new GradientPaint(0, 0, new Color(15, 25, 35, 200), 0, getHeight(), new Color(5, 10, 15, 240)));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        pnlControl.setBorder(new EmptyBorder(5, 10, 5, 10));
         
         lblTrangThai = new JLabel("");
-        lblTrangThai.setFont(new Font("Arial", Font.BOLD, 15));
+        lblTrangThai.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTrangThai.setForeground(Color.YELLOW);
         
-        btnXoayTau = new JButton("Xoay: NGANG");
+        JLabel lblAI = new JLabel("Độ khó AI: ");
+        lblAI.setForeground(Color.WHITE);
+        lblAI.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        String[] mangDoKho = {"Tân Binh", "Sĩ Quan", "Đô Đốc", "Trí Tuệ Nhân Tạo"};
+        cbDoKho = new JComboBox<>(mangDoKho);
+        cbDoKho.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cbDoKho.addActionListener(e -> doKhoBot = cbDoKho.getSelectedIndex());
+
+        btnXoayTau = taoNutDieuKhien("Xoay: NGANG", new Color(52, 152, 219));
         btnXoayTau.addActionListener(e -> {
             isNgang = !isNgang;
             btnXoayTau.setText(isNgang ? "Xoay: NGANG" : "Xoay: DỌC");
         });
 
-        btnXepNgauNhien = new JButton("Xếp ngẫu nhiên");
+        btnXepNgauNhien = taoNutDieuKhien("Xếp ngẫu nhiên", new Color(26, 188, 156));
         btnXepNgauNhien.addActionListener(e -> {
             xoaHetXepLai();
             java.util.Random rand = new java.util.Random();
@@ -83,25 +119,15 @@ public class ManHinhGame extends JFrame {
             }
         });
 
-        btnXoaHet = new JButton("Xóa hết xếp lại");
-        btnXoaHet.setBackground(new Color(230, 126, 34));
-        btnXoaHet.setForeground(Color.WHITE);
+        btnXoaHet = taoNutDieuKhien("Xóa hết xếp lại", new Color(230, 126, 34));
         btnXoaHet.addActionListener(e -> xoaHetXepLai());
 
-        String[] mangDoKho = {"Tân Binh", "Sĩ Quan", "Đô Đốc", "Trí Tuệ Nhân Tạo"};
-        cbDoKho = new JComboBox<>(mangDoKho);
-        cbDoKho.addActionListener(e -> doKhoBot = cbDoKho.getSelectedIndex());
-
-        btnVaoTran = new JButton("VÀO TRẬN!");
-        btnVaoTran.setBackground(new Color(46, 204, 113));
-        btnVaoTran.setForeground(Color.WHITE);
-        btnVaoTran.setFont(new Font("Arial", Font.BOLD, 14));
+        btnVaoTran = taoNutDieuKhien("VÀO TRẬN!", new Color(46, 204, 113));
+        btnVaoTran.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnVaoTran.setEnabled(false);
         btnVaoTran.addActionListener(e -> batDauGame());
         
-        btnThoat = new JButton("Về Menu");
-        btnThoat.setBackground(new Color(231, 76, 60)); 
-        btnThoat.setForeground(Color.WHITE);
+        btnThoat = taoNutDieuKhien("Về Menu", new Color(231, 76, 60)); 
         btnThoat.addActionListener(e -> {
             int chon = JOptionPane.showConfirmDialog(this, "Chắc kèo muốn thoát chưa bro?", "Thoát?", JOptionPane.YES_NO_OPTION);
             if (chon == JOptionPane.YES_OPTION) {
@@ -111,8 +137,10 @@ public class ManHinhGame extends JFrame {
         });
 
         pnlControl.add(lblTrangThai);
-        pnlControl.add(new JLabel("Độ khó AI: "));
+        pnlControl.add(Box.createHorizontalStrut(10));
+        pnlControl.add(lblAI);
         pnlControl.add(cbDoKho); 
+        pnlControl.add(Box.createHorizontalStrut(5));
         pnlControl.add(btnXoayTau);
         pnlControl.add(btnXepNgauNhien);
         pnlControl.add(btnXoaHet);
@@ -132,9 +160,57 @@ public class ManHinhGame extends JFrame {
             imgTau4 = new ImageIcon(getClass().getResource("/images/tau_4.png")).getImage();
             imgTau3 = new ImageIcon(getClass().getResource("/images/tau_3.png")).getImage();
             imgTau2 = new ImageIcon(getClass().getResource("/images/tau_2.png")).getImage();
+            
+            java.net.URL bgUrl = getClass().getResource("/images/game.png");
+            if (bgUrl != null) {
+                bgBattle = new ImageIcon(bgUrl).getImage();
+            }
         } catch (Exception e) {
-            System.err.println("LỖI: Thiếu file ảnh!");
+            System.err.println("LỖI: Thiếu file hình ảnh!");
         }
+    }
+
+    private JButton taoNutDieuKhien(String text, Color mauVien) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth(), h = getHeight();
+
+                if (!isEnabled()) {
+                    g2d.setColor(new Color(80, 80, 80, 50));
+                    g2d.fillRoundRect(0, 0, w, h, 8, 8);
+                    g2d.setColor(new Color(120, 120, 120, 100));
+                    g2d.drawRoundRect(1, 1, w - 3, h - 3, 8, 8);
+                } else if (getModel().isPressed()) {
+                    g2d.setPaint(new GradientPaint(0, 0, new Color(10, 15, 20, 200), 0, h, new Color(5, 5, 5, 200)));
+                    g2d.fillRoundRect(0, 0, w, h, 8, 8);
+                } else if (getModel().isRollover()) {
+                    g2d.setPaint(new GradientPaint(0, 0, new Color(mauVien.getRed(), mauVien.getGreen(), mauVien.getBlue(), 80), 0, h, new Color(20, 30, 40, 100)));
+                    g2d.fillRoundRect(0, 0, w, h, 8, 8);
+                    g2d.setStroke(new BasicStroke(2f));
+                    g2d.setColor(mauVien);
+                    g2d.drawRoundRect(1, 1, w - 3, h - 3, 8, 8);
+                } else {
+                    g2d.setPaint(new GradientPaint(0, 0, new Color(30, 45, 60, 100), 0, h, new Color(15, 20, 30, 140)));
+                    g2d.fillRoundRect(0, 0, w, h, 8, 8);
+                    g2d.setStroke(new BasicStroke(1.2f));
+                    g2d.setColor(new Color(mauVien.getRed(), mauVien.getGreen(), mauVien.getBlue(), 120));
+                    g2d.drawRoundRect(1, 1, w - 3, h - 3, 8, 8);
+                }
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setForeground(Color.WHITE);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setOpaque(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     private void xoaHetXepLai() {
@@ -147,7 +223,6 @@ public class ManHinhGame extends JFrame {
         isPlayerTurn = true;
         isAnimating = false;
 
-        // Xóa trắng giao diện mà ko cần quét rác bộ nhớ
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 10; c++) {
                 ((OBanCo)btnMinh[r][c]).resetFull();
@@ -163,6 +238,7 @@ public class ManHinhGame extends JFrame {
         cbDoKho.setEnabled(true);
         
         lblTrangThai.setText("Hãy xếp: " + hạmĐội[0].getTen());
+        lblTrangThai.setForeground(Color.YELLOW);
     }
 
     class OBanCo extends JButton {
@@ -202,33 +278,36 @@ public class ManHinhGame extends JFrame {
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g); 
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            // Nếu chuột đang rê vào ô: Sáng bừng xanh dạ quang để dễ canh tọa độ
+            if (getModel().isRollover() && isEnabled()) {
+                g2.setColor(MAU_RADAR_HOVER);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
 
-            if (isShowShip) {
-                if (shipImg != null) {
-                    int W = shipImg.getWidth(null);
-                    int H = shipImg.getHeight(null);
-                    int sw = W / shipLen; 
-                    int sx1 = shipSeg * sw;
-                    int sx2 = sx1 + sw;
+            // Vẽ ảnh tàu chiến lên trên lớp kính mờ
+            if (isShowShip && shipImg != null) {
+                int W = shipImg.getWidth(null);
+                int H = shipImg.getHeight(null);
+                int sw = W / shipLen; 
+                int sx1 = shipSeg * sw;
+                int sx2 = sx1 + sw;
 
-                    if (!isShipNgang) { 
-                        g2.translate(getWidth() / 2.0, getHeight() / 2.0);
-                        g2.rotate(Math.PI / 2);
-                        g2.translate(-getHeight() / 2.0, -getWidth() / 2.0);
-                        g2.drawImage(shipImg, 0, 0, getHeight(), getWidth(), sx1, 0, sx2, H, null);
-                    } else { 
-                        g2.drawImage(shipImg, 0, 0, getWidth(), getHeight(), sx1, 0, sx2, H, null);
-                    }
+                if (!isShipNgang) { 
+                    g2.translate(getWidth() / 2.0, getHeight() / 2.0);
+                    g2.rotate(Math.PI / 2);
+                    g2.translate(-getHeight() / 2.0, -getWidth() / 2.0);
+                    g2.drawImage(shipImg, 0, 0, getHeight(), getWidth(), sx1, 0, sx2, H, null);
                 } else { 
-                    g2.setColor(Color.GRAY); g2.fillRect(0, 0, getWidth(), getHeight());
+                    g2.drawImage(shipImg, 0, 0, getWidth(), getHeight(), sx1, 0, sx2, H, null);
                 }
             }
             g2.dispose();
-            g2 = (Graphics2D) g.create();
 
+            // Vẽ hiệu ứng đạn trúng / hụt
+            g2 = (Graphics2D) g.create();
             if ((isHitAnimation || isPermanentlyOnFire) && imgHit != null) {
                 g2.drawImage(imgHit, 0, 0, getWidth(), getHeight(), null);
             } else if (isMiss && imgMiss != null) {
@@ -239,23 +318,41 @@ public class ManHinhGame extends JFrame {
     }
 
     private JPanel taoMotBanCo(String tieuDe, boolean isEnemy, JButton[][] mangNut) {
-        JPanel pnlKhuVuc = new JPanel(new BorderLayout(0, 10));
+        // --- ĐÂY RỒI: TẠO HỘP KÍNH MỜ CHỐNG CHÓI CHO KHU VỰC BÀN CỜ ---
+        JPanel pnlKhuVuc = new JPanel(new BorderLayout(0, 15)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // Đổ một lớp nền đen mờ (Alpha = 150) bao bọc riêng khu vực bàn cờ này
+                // Giúp lưới màu trắng nổi bần bật lên, triệt tiêu sự chói mắt từ background
+                g2d.setColor(new Color(12, 18, 28, 150)); 
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
         pnlKhuVuc.setOpaque(false);
+        // Thêm khoảng đệm lót viền cho đẹp mắt
+        pnlKhuVuc.setBorder(new EmptyBorder(15, 15, 15, 15));
+        
         JLabel lbl = new JLabel(tieuDe, SwingConstants.CENTER);
-        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lbl.setForeground(isEnemy ? new Color(255, 94, 87) : new Color(52, 152, 219)); 
         pnlKhuVuc.add(lbl, BorderLayout.NORTH);
 
-        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10));
+        JPanel pnlLuoi = new JPanel(new GridLayout(10, 10, 1, 1)); 
         pnlLuoi.setPreferredSize(new Dimension(400, 400));
         pnlLuoi.setOpaque(false); 
         
         for (int i = 0; i < 100; i++) {
             int r = i / 10, c = i % 10;
             OBanCo btn = new OBanCo();
-            btn.setBackground(MAU_NUOC_BIEN);
-            btn.setBorder(BorderFactory.createLineBorder(new Color(41, 128, 185), 1));
+            btn.setContentAreaFilled(false);
             btn.setFocusPainted(false);
-            btn.setRolloverEnabled(false);
+            
+            // ĐƯỜNG LƯỚI CYBERPUNK CHUẨN: Màu trắng đục rõ ràng trên nền kính đen mờ
+            btn.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 1)); 
             
             btn.addActionListener(e -> {
                 if (isDangXepTau && !isEnemy) xuLyDatTau(r, c, true);
@@ -275,7 +372,6 @@ public class ManHinhGame extends JFrame {
         if (dataBanCoMinh.datTau(tau, r, c, isNgang)) {
             Image img = (tau.getChieuDai() == 5) ? imgTau5 : (tau.getChieuDai() == 4) ? imgTau4 : (tau.getChieuDai() == 3) ? imgTau3 : imgTau2;
             
-            // TỐI ƯU CỰC MẠNH: Chỉ vẽ lên đúng những ô vừa xếp, không cần load lại toàn bộ bàn cờ!
             for (int i = 0; i < tau.getChieuDai(); i++) {
                 int tr = r + (isNgang ? 0 : i);
                 int tc = c + (isNgang ? i : 0);
@@ -305,18 +401,19 @@ public class ManHinhGame extends JFrame {
         cbDoKho.setEnabled(false);
 
         lblTrangThai.setText("LƯỢT CỦA BẠN. TẤN CÔNG ĐI!");
+        lblTrangThai.setForeground(Color.CYAN);
     }
 
     private void playerAttack(int r, int c) {
         if (!isPlayerTurn || isAnimating || dataBanCoDich.getOVuong(r, c).isDaBan()) return;
         
         boolean trúng = dataBanCoDich.biBan(r, c);
-        OBanCo targetBtn = (OBanCo)btnDich[r][c]; // CHỈ MỤC TIÊU NÀY BỊ THAY ĐỔI
+        OBanCo targetBtn = (OBanCo)btnDich[r][c];
 
         if (trúng) {
             phatAmThanh("boom.wav");
             isAnimating = true;
-            targetBtn.isShowShip = true; // Hiện xác tàu ra
+            targetBtn.isShowShip = true; 
             targetBtn.hieuUngNoVaChay();
 
             Timer t = new Timer(600, e -> {
@@ -326,6 +423,7 @@ public class ManHinhGame extends JFrame {
                     xoaHetXepLai();
                 } else {
                     lblTrangThai.setText("TRÚNG RỒI! BẠN ĐƯỢC BẮN TIẾP.");
+                    lblTrangThai.setForeground(Color.GREEN);
                 }
             });
             t.setRepeats(false); t.start();
@@ -337,6 +435,7 @@ public class ManHinhGame extends JFrame {
             
             isPlayerTurn = false;
             lblTrangThai.setText("ĐỊCH ĐANG KHAI HỎA...");
+            lblTrangThai.setForeground(Color.ORANGE);
             Timer t = new Timer(600, e -> botAttack());
             t.setRepeats(false); t.start();
         }
@@ -351,11 +450,11 @@ public class ManHinhGame extends JFrame {
         }
 
         boolean trúng = dataBanCoMinh.biBan(r, c);
-        OBanCo targetBtn = (OBanCo)btnMinh[r][c]; // CHỈ MỤC TIÊU NÀY BỊ THAY ĐỔI
+        OBanCo targetBtn = (OBanCo)btnMinh[r][c];
 
         if (trúng) {
             phatAmThanh("boom.wav");
-            targetBtn.hieuUngNoVaChay(); // Tàu mình đã hiện sẵn, chỉ cần thêm lửa vào
+            targetBtn.hieuUngNoVaChay();
 
             Timer t = new Timer(700, e -> {
                 if (dataBanCoMinh.isThuaCuoc()) {
@@ -363,7 +462,7 @@ public class ManHinhGame extends JFrame {
                     xoaHetXepLai();
                 } else {
                     lblTrangThai.setText("BOT BẮN TRÚNG! NÓ ĐƯỢC BẮN TIẾP...");
-                    botAttack(); // Bot bắn tiếp vì trúng
+                    botAttack(); 
                 }
             });
             t.setRepeats(false); t.start();
@@ -375,6 +474,7 @@ public class ManHinhGame extends JFrame {
             
             isPlayerTurn = true;
             lblTrangThai.setText("LƯỢT CỦA BẠN. TẤN CÔNG ĐI!");
+            lblTrangThai.setForeground(Color.CYAN);
         }
     }
 
